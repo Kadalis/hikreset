@@ -47,7 +47,8 @@ int main(int argc, char **argv)
 				if(!access(optarg, R_OK)){
 					FILE *fd;
 					fd = fopen(optarg, "rt");
-					scan(fd);
+					scan(fd, atoi(argv[3]));
+					return 0;
 				}else
 					fprintf(stderr, "Have no access to file %s : %s\n", optarg,strerror(errno));
 				break;

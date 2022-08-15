@@ -1,3 +1,4 @@
 #include <stdio.h>
 
-void scan(FILE *);
+void SIGCHLDHandler(int);
+int scan(FILE *, int);

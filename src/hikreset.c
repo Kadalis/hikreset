@@ -137,7 +137,7 @@ int backdoorCheck(char *ip){
 			return -3;
 		}
 	}else if(hikvisionCheckResult==0){
-		printf("%s - not a Hikvision device.\n", ip);
+		fprintf(stderr, "%s - not a Hikvision device.\n", ip);
 		return -1;
 	}
 	else  if (hikvisionCheckResult == -4) return -4;

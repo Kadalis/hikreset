@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include "scanner.h"
 #include "hikreset.h"
-
 void scan(FILE *fd){
 	char *line = NULL;
 	size_t len = 0;
@@ -23,7 +22,7 @@ void scan(FILE *fd){
 			continue;
 		}
 		else if (checked == -4) continue;
-		else fprintf(stderr, "%s: Backdoor not confirmed\n", line);
+		else fprintf(stderr, "%s - Backdoor not confirmed\n", line);
 
     }
     free(line);

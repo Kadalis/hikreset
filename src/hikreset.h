@@ -1,6 +1,12 @@
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
+#define NOTVULNERABLE -5
+#define NOTENOUGHTMEMORY -4
+#define NOTHIKVISIONERR -3
+#define EASYPERFORMERR -2
+#define CURLINITERR -1
+
 #include <stdio.h>
 
 enum downloadFile{
@@ -14,6 +20,6 @@ struct MemoryStruct {
 };
 
 int download(char *ip, enum downloadFile filetype, FILE *fd);
-void getUsers(char *ip);
+int getUsers(char *ip);
 int hikvisionCheck(char *ip);
 int backdoorCheck(char *ip);

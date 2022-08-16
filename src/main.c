@@ -1,8 +1,8 @@
 #include "hikreset.h"
-//##include <stdio.h>
+#include "scanner.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
-#include "scanner.h"
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
@@ -31,7 +31,7 @@ void print_usage(char *filename){
 
 int main(int argc, char **argv)
 {
-	char opchar = 0;
+	int opchar = 0;
 	struct option long_options[] = {
 		{"help",        no_argument,       NULL, 'h'},
 		{"snapshot",     required_argument,       NULL, 's'},
@@ -47,8 +47,8 @@ int main(int argc, char **argv)
 				if(!access(optarg, R_OK)){
 					FILE *fd;
 					fd = fopen(optarg, "rt");
-					scan(fd, atoi(argv[3]));
-					return 0;
+					if (argc>=4) scan(fd, atoi(argv[3]));
+					else print_help(argv[0]);
 				}else
 					fprintf(stderr, "Have no access to file %s : %s\n", optarg,strerror(errno));
 				break;
@@ -89,13 +89,14 @@ int main(int argc, char **argv)
 				getUsers(argv[2]);
 				break;
 			}
-			case 0:{
+			default:{
 				print_usage(argv[0]);
 				break;
 			}
 		}
+		
+		return 1;
 
 	}
-
-	return 0;
+	print_usage(argv[0]);
 }

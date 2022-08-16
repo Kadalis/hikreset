@@ -9,10 +9,9 @@
 
 int childCounter = 0;
 
-void SIGCHLDHandler(int sig){
+static void SIGCHLDHandler(int sig){
 	childCounter--;
-	int kek=0;
-	wait(&kek);
+	wait(NULL);
 }
 
 int scan(FILE *fd, int childs){
@@ -42,20 +41,18 @@ int scan(FILE *fd, int childs){
 			fclose(fd);
 			long checked = backdoorCheck(line);
 
-			if (checked==1){
+			if (checked==1)
 				printf("%s - Backdoor Confirmed!\n", line);
-			}
-			else if(checked == -1){
-				return 0;
-			}
-			else if (checked == -3){
-				printf("Something went wrong during curl init. Proceeding to next target.\n");
-				return 0;
-			}
-			else if (checked == -4) return 0;
-			else fprintf(stderr, "%s - Backdoor not confirmed\n", line);
+			else if (checked == CURLINITERR)
+				fprintf(stderr, "%s - Something went wrong during curl init.\n", line);
+			else if (checked == NOTENOUGHTMEMORY)
+				fprintf(stderr, "%s - Not enought memory for buffer.\n", line);
+			else if (checked == NOTHIKVISIONERR)
+				fprintf(stdin, "%s - Not a Hikvision device.\n", line);
+			else if (checked == NOTVULNERABLE)
+				fprintf(stdin, "%s - Backdoor not confirmed.\n", line);
 			free(line);
-			return 0;
+			return checked;
 		}else if (pid>0) childCounter++;
 		else goto redo;
     }

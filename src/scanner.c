@@ -48,9 +48,9 @@ int scan(FILE *fd, int childs){
 			else if (checked == NOTENOUGHTMEMORY)
 				fprintf(stderr, "%s - Not enought memory for buffer.\n", line);
 			else if (checked == NOTHIKVISIONERR)
-				fprintf(stdin, "%s - Not a Hikvision device.\n", line);
+				fprintf(stderr, "%s - Not a Hikvision device.\n", line);
 			else if (checked == NOTVULNERABLE)
-				fprintf(stdin, "%s - Backdoor not confirmed.\n", line);
+				fprintf(stderr, "%s - Backdoor not confirmed.\n", line);
 			free(line);
 			return checked;
 		}else if (pid>0) childCounter++;

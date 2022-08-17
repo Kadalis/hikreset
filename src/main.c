@@ -66,7 +66,7 @@ int main(int argc, char **argv)
 			case 'C': {
 				FILE *fd;
 				fd = fopen(optarg, "wb");
-				download(argv[3], SNAPSHOT, fd);
+				download(argv[3], CONFIG, fd);
 				break;
 			}
 			case 'c': {

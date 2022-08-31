@@ -1,6 +1,3 @@
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
 #define NOTVULNERABLE -5
 #define NOTENOUGHTMEMORY -4
 #define NOTHIKVISIONERR -3

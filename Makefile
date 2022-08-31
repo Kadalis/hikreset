@@ -1,5 +1,5 @@
 CC = clang
-CFLAGS = -Wall -Wextra
+CFLAGS = -Wall -Wextra -Wpedantic
 
 all: distr/hikreset.o src/main.c distr/scanner.o
 	$(CC) $(CFLAGS) src/main.c distr/hikreset.o distr/scanner.o -l curl -o distr/hikreset.elf
